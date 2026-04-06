@@ -1,0 +1,6 @@
+node_modules/
+
+# Google Cloud service account keys — never commit (use Jenkins Secret file only)
+august-eye*.json
+*-sa.json
+*-key.json
