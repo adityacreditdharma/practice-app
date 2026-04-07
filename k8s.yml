@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: hello-gke-node
-          image: asia-south1-docker.pkg.dev/project-5cb55985-b2f0-469c-8cb/node-repo/hello-gke-node:v2
+          image: asia-south1-docker.pkg.dev/sivasi/node-repo/hello-gke-node:v1
           ports:
             - containerPort: 8080
 ---
