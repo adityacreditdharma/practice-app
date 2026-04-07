@@ -8,7 +8,7 @@ pipeline {
     // Jenkins → Credentials → Secret file: upload SA JSON, ID: gcp-sa-json
 
     // Project where Artifact Registry + GKE cluster live (grant the SA roles on this project)
-    PROJECT_ID = 'project-5cb55985-b2f0-469c-8cb'
+    PROJECT_ID = 'sivasi'
     REGION = 'asia-south1'
     AR_HOST = "${REGION}-docker.pkg.dev"
     AR_REPO = 'node-repo'
