@@ -99,6 +99,7 @@ const html = `<!DOCTYPE html>
     <div class="badge"><span></span> Live</div>
     <h1>Hello from Node.js on GKE</h1>
     <p>Shipped with Docker, delivered by Jenkins, and running happily behind Kubernetes.</p>
+    <p> by Aditya kumar </p>
     <div class="meta">
       <strong>Stack</strong> · Node ${process.version} · Port ${PORT}
     </div>
