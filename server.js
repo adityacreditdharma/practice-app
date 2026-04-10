@@ -1,6 +1,17 @@
 const http = require('http');
+const { URL } = require('url');
 
 const PORT = process.env.PORT || 8080;
+
+/** Busy-loop for ~ms milliseconds (one Node thread → pegs ~1 CPU core while it runs). */
+function burnCpu(ms) {
+  const end = Date.now() + ms;
+  let x = 1;
+  while (Date.now() < end) {
+    x = (x * 48271 + 0x7fffffff) >>> 0;
+  }
+  return x;
+}
 
 const html = `<!DOCTYPE html>
 <html lang="en">
@@ -113,6 +124,19 @@ const server = http.createServer((req, res) => {
     res.end();
     return;
   }
+
+  // Load test: GET /stress?ms=5000  (default 5s, max 60s). Pegs CPU on this process.
+  if (req.method === 'GET' && req.url.startsWith('/stress')) {
+    const u = new URL(req.url, `http://127.0.0.1:${PORT}`);
+    const raw = parseInt(u.searchParams.get('ms') || '5000', 10);
+    const ms = Math.min(Math.max(Number.isFinite(raw) ? raw : 5000, 100), 60000);
+    const t0 = Date.now();
+    burnCpu(ms);
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(`CPU burn ~${ms}ms requested, actual ${Date.now() - t0}ms (single thread)\n`);
+    return;
+  }
+
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(html);
 });
