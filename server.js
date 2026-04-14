@@ -1,6 +1,19 @@
-const http = require('http');
+const express = require('express');
+const client = require('prom-client');
 
 const PORT = process.env.PORT || 8080;
+const app = express();
+
+const register = new client.Registry();
+client.collectDefaultMetrics({ register });
+
+const httpRequestDuration = new client.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'HTTP request latency in seconds by route/method/status',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [0.05, 0.1, 0.2, 0.5, 1, 2, 5]
+});
+register.registerMetric(httpRequestDuration);
 
 /** Heavy CPU loop: sum index from 0 to 10^9-1. */
 function burnCpu() {
@@ -109,6 +122,7 @@ const html = `<!DOCTYPE html>
     <h1>Hello from Node.js on GKE</h1>
     <p>Shipped with Docker, delivered by Jenkins, and running happily behind Kubernetes.</p>
     <p> by Aditya kumar </p>
+    <p>Latency routes: <code>/latency/fast</code> and <code>/latency/slow</code></p>
     <div class="meta">
       <strong>Stack</strong> · Node ${process.version} · Port ${PORT}
     </div>
@@ -116,26 +130,68 @@ const html = `<!DOCTYPE html>
 </body>
 </html>`;
 
-const server = http.createServer((req, res) => {
-  if (req.url === '/favicon.ico') {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  // Load test: GET /stress  (runs a 10^9 summation loop).
-  if (req.method === 'GET' && req.url.startsWith('/stress')) {
-    const t0 = Date.now();
-    const total = burnCpu();
-    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end(`Loop 10^9 completed in ${Date.now() - t0}ms. Sum=${total.toString()}\n`);
-    return;
-  }
-
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(html);
+app.use((req, res, next) => {
+  const stopTimer = httpRequestDuration.startTimer();
+  res.on('finish', () => {
+    const route = req.route && req.route.path ? req.route.path : req.path;
+    if (route === '/metrics') {
+      return;
+    }
+    stopTimer({
+      method: req.method,
+      route,
+      status_code: String(res.statusCode)
+    });
+  });
+  next();
 });
 
-server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
+
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
+
+// Load test: GET /stress  (runs a 10^9 summation loop).
+app.get('/stress', (req, res) => {
+  const t0 = Date.now();
+  const total = burnCpu();
+  res.type('text/plain').send(
+    `Loop 10^9 completed in ${Date.now() - t0}ms. Sum=${total.toString()}\n`
+  );
+});
+
+app.get('/latency/fast', async (req, res) => {
+  const t0 = Date.now();
+  await sleep(120);
+  res.json({
+    route: '/latency/fast',
+    simulatedDelayMs: 120,
+    totalTimeMs: Date.now() - t0
+  });
+});
+
+app.get('/latency/slow', async (req, res) => {
+  const t0 = Date.now();
+  await sleep(1400);
+  res.json({
+    route: '/latency/slow',
+    simulatedDelayMs: 1400,
+    totalTimeMs: Date.now() - t0
+  });
+});
+
+app.get('/', (req, res) => {
+  res.type('html').send(html);
+});
+
+app.listen(PORT, () => {
+  console.log(`Express server listening on port ${PORT}`);
 });

@@ -3,9 +3,10 @@
     "version": "1.0.0",
     "main": "server.js",
     "scripts": {
-      "start": "node server.js"
+        "start": "node server.js"
     },
     "dependencies": {
-      "http": "0.0.1-security"
+        "express": "^5.2.1",
+        "prom-client": "^15.1.3"
     }
-  }
+}
